@@ -92,6 +92,7 @@ def main():
     get_linear_data_stats(df, ['Popularity', 'danceability', 'energy', 'loudness', 'speechiness', 'instrumentalness', 'liveness', 'tempo'])
     get_categorical_data_stats(df, ['time_signature'])
 
+    # testing
     plt.show()
 
     return
