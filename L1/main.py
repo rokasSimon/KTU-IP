@@ -142,15 +142,23 @@ def outputCorrelation(df: pd.DataFrame, columns: list[str]):
 
     return
 
-def outputLinearAndCategoricalDataBoxPlots(df: pd.DataFrame):
+def outputLinearAndCategoricalPlots(df: pd.DataFrame):
+    # these can't be used at the same time
 
-    df['Popularity'].plot.box()
-    df.boxplot(by='key', column=['Popularity'], grid=True)
-    df.boxplot(by='mode', column=['Popularity'], grid=True)
+    #df['Popularity'].plot.box()
+    #df.boxplot(by='key', column=['Popularity'], grid=True)
+    #df.boxplot(by='mode', column=['Popularity'], grid=True)
+
+
 
     #df['energy'].plot.box()
     #df.boxplot(by='key', column=['energy'], grid=True)
     #df.boxplot(by='mode', column=['energy'], grid=True)
+
+
+
+    df['Popularity'].plot.hist()
+    df.hist(by='key', column=['Popularity'], grid=True)
 
     return
 
@@ -189,7 +197,7 @@ def main():
 
     #normalizeValues(correctedDataFile, normalizedDataFile, ['Popularity', 'danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo', 'key', 'mode'])
 
-    outputLinearAndCategoricalDataBoxPlots(df)
+    outputLinearAndCategoricalPlots(df)
 
     plt.show()
 
