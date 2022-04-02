@@ -7,11 +7,6 @@ maxSeq = 8000
 maxTbw = 4000
 maxCos = 1200
 
-
-xSeq = np.arange(0, maxSeq, 1)
-xTbw = np.arange(0, maxTbw, 1)
-xCos = np.arange(0, maxCos, 1)
-
 class Capacity:
     def __init__(self):
         self.xCap = np.arange(0, maxCap, 1)
@@ -133,22 +128,104 @@ class Cost:
 
         return
 
+def AND(*args):
+    return np.min(args)
 
-def getCostScore(cap, seq, tbw):
+def OR(*args):
+    return np.max(args)
 
-    lowCost, medCost, highCost = 0, 0, 0
-    (lowCap, medCap, highCap) = Capacity().score(cap)
-    (lowSeq, medSeq, highSeq, vhighSeq) = Speed().score(seq)
-    (lowTbw, medTbw, highTbw) = TBW().score(tbw)
-    (lowCostF, medCostF, highCostF) = Cost().cost
+def NOT(val):
+    return 1 - val;
 
+def lowCostRule(cap, seq, tbw):
+    return OR(
+        AND(cap[0], NOT(seq[3]), tbw[0]),
+        AND(cap[1], seq[0], tbw[0]),
+    )
 
+def medCostRule(cap, seq, tbw):
+    return OR(
+        AND(cap[0], NOT(seq[3]), tbw[1]),
+        AND(cap[0], seq[3], tbw[0]),
+        AND(cap[1], seq[0], tbw[1]),
+        AND(cap[1], OR(seq[1], seq[2]), OR(tbw[0], tbw[1])),
+        AND(cap[2], NOT(seq[3]), tbw[0]),
+        AND(cap[2], OR(seq[0], seq[1]), tbw[1]),
+    )
 
-    return [
-        np.fmin(lowCost, lowCostF),
-        np.fmin(medCost, medCostF),
-        np.fmin(highCost, highCostF)
-    ]
+def highCostRule(cap, seq, tbw):
+    return OR(
+        AND(tbw[2]),
+        AND(seq[3], tbw[1]),
+        AND(OR(cap[1], cap[2]), seq[3], tbw[0]),
+        AND(cap[2], seq[2], tbw[1]),
+    )
+
+def implication(cap, seq, tbw, plot):
+
+    c = Cost()
+    y0 = np.zeros_like(c.xCos)
+
+    capScore = Capacity().score(cap)
+    seqScore = Speed().score(seq)
+    tbwScore = TBW().score(tbw)
+    (lowCostF, medCostF, highCostF) = c.cost
+
+    lowCost  =  lowCostRule(capScore, seqScore, tbwScore)
+    medCost  =  medCostRule(capScore, seqScore, tbwScore)
+    highCost = highCostRule(capScore, seqScore, tbwScore)
+
+    if plot:
+        print(f"    Talpos įvertinimas: {capScore}")
+        print(f"    Greičio įvertinimas: {seqScore}")
+        print(f"    Tvermės įvertinimas: {tbwScore}")
+        print(f"    Kainos įvertis: {[lowCost, medCost, highCost]}")
+
+    lowImpl = np.fmin(lowCost, lowCostF)
+    medImpl = np.fmin(medCost, medCostF)
+    highImpl = np.fmin(highCost, highCostF)
+
+    if plot:
+        plt.figure()
+        plt.plot(c.xCos, c.cost[0], 'green', label = "Biudžetinis")
+        plt.fill_between(c.xCos, y0, lowImpl, facecolor = 'r', alpha = 0.5)
+        plt.plot(c.xCos, c.cost[1], 'green', label = "Mainstream")
+        plt.fill_between(c.xCos, y0, medImpl, facecolor = 'g', alpha = 0.5)
+        plt.plot(c.xCos, c.cost[2], 'green', label = "Entuziastam")
+        plt.fill_between(c.xCos, y0, highImpl, facecolor = 'b', alpha = 0.5)
+        plt.title('Implikacija')
+
+    return [lowImpl, medImpl, highImpl]
+
+def aggregation(cap, seq, tbw, plot):
+
+    (lowCost, medCost, highCost) = implication(cap, seq, tbw, plot)
+
+    aggregated = np.fmax(
+       lowCost,
+       np.fmax(
+           medCost, highCost
+       )
+    )
+
+    return aggregated
+
+def defuzzification(cap, seq, tbw, method, plot):
+
+    c = Cost()
+
+    agg = aggregation(cap, seq, tbw, plot)
+
+    if plot:
+        plt.figure()
+        plt.plot(c.xCos, c.cost[0], 'black', zorder = 1)
+        plt.plot(c.xCos, c.cost[1], 'black', zorder = 1)
+        plt.plot(c.xCos, c.cost[2], 'black', zorder = 1)
+        plt.plot(c.xCos, agg, 'blue', zorder = 2)
+        plt.fill_between(c.xCos, np.zeros_like(c.xCos), agg, facecolor = 'blue')
+        plt.title('Agregacija')
+
+    return fuzz.defuzz(Cost().xCos, agg, method)
 
 def main():
 
@@ -161,6 +238,28 @@ def main():
     seq.plot()
     tbw.plot()
     cost.plot()
+
+    cases = [
+        (256, 2000, 250),
+        (2500, 3500, 1400),
+        (6000, 7000, 3600)
+    ]
+
+    i = 0
+    for case in cases:
+        i += 1
+
+        print(f"Scenarijus {i}:")
+        print(f"    Talpa: {case[0]} GB")
+        print(f"    Greitis: {case[1]} MB\\s")
+        print(f"    Tvermė: {case[2]} TBW")
+
+        resCentroid = defuzzification(*case, method='centroid', plot = True)
+        resMom = defuzzification(*case, method='mom', plot = False)
+
+        print(f"    Rezultatas (centroido): {resCentroid}")
+        print(f"    Rezultatas (maksimumų vidurkis): {resMom}")
+        print()
 
     plt.show()
 
