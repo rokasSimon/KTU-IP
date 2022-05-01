@@ -1,9 +1,4 @@
-from matplotlib import projections
-import sklearn
-from sklearn import datasets
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import normalize as sknorm
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -23,7 +18,7 @@ def plotSunspotActivity(years: list[int], activity: list[int]):
 
     plt.figure()
     plt.plot(years, activity)
-    plt.title("Sun activity 1700-2014")
+    plt.title("Sunspot activity 1700-2014")
     plt.xlabel("Years")
     plt.ylabel("Sunspot number")
 
@@ -59,13 +54,15 @@ def plotSunspot3D(inputs: list[list[int]], outputs: list[int]):
 
     return
 
-def plotPredictionsToReal(years: list[int], real: list[int], predictions: list[float]):
+def plotPredictionsToReal(years: list[int], real: list[int], predictions: list[float], title: str):
 
     plt.figure()
     plt.plot(years, real, 'blue', label='Test data')
     plt.plot(years, predictions, 'red', label='Prediction data')
-    plt.title('Comparison of real data and prediction')
+    plt.title(title)
     plt.legend()
+    plt.xlabel('Years')
+    plt.ylabel('Sunspot value')
 
     return
 
@@ -104,44 +101,47 @@ def normalize(x):
     return (xnd - xnd.min()) / (np.ptp(x))
 
 class AdaptiveLinearNeuron(object):
-    def __init__(self, rate = 0.01, niter = 10):
-       self.rate = rate
-       self.niter = niter
+   def __init__(self, rate = 0.01, niter = 10):
+      self.rate = rate
+      self.niter = niter
 
-    def fit(self, X: np.array, y: np.array):
-       """Fit training data
-       X : Training vectors, X.shape : [#samples, #features]
-       y : Target values, y.shape : [#samples]
-       """
+   def fit(self, X, y):
+      """Fit training data
+      X : Training vectors, X.shape : [#samples, #features]
+      y : Target values, y.shape : [#samples]
+      """
 
-       # weights
-       self.weight = np.zeros(1 + X.shape[1])
+      # weights
+      self.weight = np.zeros(1 + X.shape[1])
 
-       # Number of misclassifications
-       self.errors = []
+      # Number of misclassifications
+      self.errors = []
 
-       # Cost function
-       self.cost = []
+      # Cost function
+      self.cost = []
 
-       for i in range(self.niter):
-          output = self.activation(self.net_input(X))
-          errors = y - output
-          self.weight[1:] += self.rate * X.T.dot(errors)
-          self.weight[0] += self.rate * errors.sum()
-          cost = (errors**2).sum() / 2.0
-          self.cost.append(cost)
-       return self
+      for i in range(self.niter):
+         output = self.net_input(X)
+         errors = y - output
+         self.weight[1:] += self.rate * X.T.dot(errors)
+         self.weight[0] += self.rate * errors.sum()
+         cost = (errors**2).sum() / 2.0
 
-    def net_input(self, X):
-       """Calculate net input"""
-       return np.dot(X, self.weight[1:]) + self.weight[0]
+         self.cost.append(cost)
+         self.errors.append(errors)
+      return self
 
-    def activation(self, X):
-       return X
+   def net_input(self, X):
+      """Calculate net input"""
+      return np.dot(X, self.weight[1:]) + self.weight[0]
 
-    def predict(self, X):
-       """Return class label after unit step"""
-       return np.where(self.activation(X) >= 0.0, 1, -1)
+   def activation(self, X):
+      """Compute linear activation"""
+      return self.net_input(X)
+
+   def predict(self, X):
+      """Return class label after unit step"""
+      return np.where(self.activation(X) >= 0.0, 1, -1)
 
 def main():
 
@@ -154,16 +154,16 @@ def main():
         return
     
     # 4
-    #plotSunspotActivity(years, activity)
+    plotSunspotActivity(years, activity)
 
     # 5
-    degree = 2
+    degree = 10
     [P, T] = prepareInputs(activity, degree)
     print(f"Input list size: {len(P)}")
     print(f"Output list size: {len(T)}")
 
     # 6
-    #plotSunspot3D(P, T)
+    plotSunspot3D(P, T)
 
     # 7
     lim = 200
@@ -174,24 +174,23 @@ def main():
     model = LinearRegression().fit(Pu, Tu)
 
     # 9
-    [w1, w2] = model.coef_[0]
     b = model.intercept_[0]
-    print(f"Coefficients: [{w1} {w2}]")
-    print(f"Intercept: {b}")
+    print(f"Coefficients: {model.coef_[0]}")
+    print(f"Intercept (b): {b}")
 
     # 10
     Tsu = model.predict(Pu)
-    #plotPredictionsToReal(years[:lim], Tu, Tsu)
+    plotPredictionsToReal(years[:lim], Tu, Tsu, 'Training prediction vs training expected Sunspot values')
 
     testTsu = model.predict(testPu)
-    #plotPredictionsToReal(years[lim:], testTu, testTsu)
+    plotPredictionsToReal(years[lim:], testTu, testTsu, 'Test prediction vs test expected Sunspot values')
 
     # 11
     e = testTu - testTsu
-    #plotDifference(years[lim:], e)
+    plotDifference(years[lim:], e)
 
     # 12
-    #plotDifferenceHist(e)
+    plotDifferenceHist(e)
 
     # 13
     mse = MSE(e)
@@ -201,27 +200,13 @@ def main():
     print(f"Median Absolute Deviation: {mad}")
 
     # 14, 15, 16
-    #normActivity = normalize(activity)
-    #[normP, normT] = prepareInputs(normActivity, degree)
-    #[normPu, normTu] = [np.array(normP[:lim]), np.array(normT[:lim])]
-    normPu = sknorm(Pu, norm='max')
-    normTu = sknorm(Tu, norm='max')
-
-    learningRate = 0.001
+    learningRate = 0.0000004
     epochs = 1000
-    #modelAdp = AdaptiveLinearNeuron(learningRate, epochs).fit(Pu, Tu.T[0])
-    modelAdp = AdaptiveLinearNeuron(learningRate, epochs).fit(normPu, normTu.T[0])
+    modelAdp = AdaptiveLinearNeuron(learningRate, epochs).fit(Pu, Tu.T[0])
 
-    #print(modelAdp.cost)
-    #print(modelAdp.weight)
-
-    bc = datasets.load_breast_cancer()
-    X = bc.data
-    y = bc.target
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
-
-    print(X_train[:10, 0])
+    print(f"Weights after Adaline training: {modelAdp.weight}")
+    print(f"MSE for last iteration of Adaline training: {MSE(modelAdp.errors[-1])}")
+    print(f"MAD for last iteration of Adaline training: {MAD(modelAdp.errors[-1])}")
 
     plt.show()
     return
