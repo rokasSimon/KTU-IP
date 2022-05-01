@@ -1,6 +1,9 @@
-from cProfile import label
 from matplotlib import projections
+import sklearn
+from sklearn import datasets
 from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import normalize as sknorm
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -86,6 +89,60 @@ def plotDifferenceHist(error: list[float]):
 
     return
 
+def MSE(e: list[float]) -> float:
+
+    sqr = np.square(e)
+
+    return 1 / len(e) * sqr.sum()
+
+def MAD(e: list[float]) -> float:
+
+    return np.median(np.abs(e))
+
+def normalize(x):
+    xnd = np.asarray(x)
+    return (xnd - xnd.min()) / (np.ptp(x))
+
+class AdaptiveLinearNeuron(object):
+    def __init__(self, rate = 0.01, niter = 10):
+       self.rate = rate
+       self.niter = niter
+
+    def fit(self, X: np.array, y: np.array):
+       """Fit training data
+       X : Training vectors, X.shape : [#samples, #features]
+       y : Target values, y.shape : [#samples]
+       """
+
+       # weights
+       self.weight = np.zeros(1 + X.shape[1])
+
+       # Number of misclassifications
+       self.errors = []
+
+       # Cost function
+       self.cost = []
+
+       for i in range(self.niter):
+          output = self.activation(self.net_input(X))
+          errors = y - output
+          self.weight[1:] += self.rate * X.T.dot(errors)
+          self.weight[0] += self.rate * errors.sum()
+          cost = (errors**2).sum() / 2.0
+          self.cost.append(cost)
+       return self
+
+    def net_input(self, X):
+       """Calculate net input"""
+       return np.dot(X, self.weight[1:]) + self.weight[0]
+
+    def activation(self, X):
+       return X
+
+    def predict(self, X):
+       """Return class label after unit step"""
+       return np.where(self.activation(X) >= 0.0, 1, -1)
+
 def main():
 
     # 1, 2
@@ -130,13 +187,41 @@ def main():
     #plotPredictionsToReal(years[lim:], testTu, testTsu)
 
     # 11
-    e = testTsu - testTu
+    e = testTu - testTsu
     #plotDifference(years[lim:], e)
 
     # 12
-    plotDifferenceHist(e)
+    #plotDifferenceHist(e)
 
     # 13
+    mse = MSE(e)
+    mad = MAD(e)
+
+    print(f"Mean-Square Error: {mse}")
+    print(f"Median Absolute Deviation: {mad}")
+
+    # 14, 15, 16
+    #normActivity = normalize(activity)
+    #[normP, normT] = prepareInputs(normActivity, degree)
+    #[normPu, normTu] = [np.array(normP[:lim]), np.array(normT[:lim])]
+    normPu = sknorm(Pu, norm='max')
+    normTu = sknorm(Tu, norm='max')
+
+    learningRate = 0.001
+    epochs = 1000
+    #modelAdp = AdaptiveLinearNeuron(learningRate, epochs).fit(Pu, Tu.T[0])
+    modelAdp = AdaptiveLinearNeuron(learningRate, epochs).fit(normPu, normTu.T[0])
+
+    #print(modelAdp.cost)
+    #print(modelAdp.weight)
+
+    bc = datasets.load_breast_cancer()
+    X = bc.data
+    y = bc.target
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
+
+    print(X_train[:10, 0])
 
     plt.show()
     return
